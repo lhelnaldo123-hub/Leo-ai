@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#10091f">
+<title>LEO AI</title>
+
+<!-- Libraries for generating documents in the browser -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+:root {
+  --bg:#0b0714;
+  --panel:#170e27;
+  --panel2:#251438;
+  --purple:#a855f7;
+  --text:#f5efff;
+  --muted:#ac9aba;
+  --border:rgba(192,132,252,.22);
+}
+* { box-sizing:border-box; }
+body {
+  margin:0;
+  height:100dvh;
+  overflow:hidden;
+  background:radial-gradient(circle at 50% -20%,#38205a,transparent 45%),var(--bg);
+  color:var(--text);
+  font-family:Arial,Helvetica,sans-serif;
+}
+button,input,textarea,select { font:inherit; }
+button { cursor:pointer; }
+.app {
+  height:100dvh;
+  max-width:1100px;
+  margin:auto;
+  display:flex;
+  flex-direction:column;
+  border-inline:1px solid var(--border);
+  background:rgba(11,7,20,.85);
+}
+header {
+  padding:12px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  border-bottom:1px solid var(--border);
+  background:var(--panel);
+}
+.brand { display:flex;align-items:center;gap:10px; }
+.logo {
+  width:44px;height:44px;
+  display:grid;place-items:center;
+  border-radius:15px;
+  font-weight:bold;font-size:22px;
+  background:linear-gradient(135deg,#c084fc,#6d28d9);
+  box-shadow:0 0 20px #7c3aed66;
+}
+.brand h1 { margin:0;font-size:19px;letter-spacing:2px; }
+.brand p { margin:4px 0 0;font-size:11px;color:var(--muted); }
+.actions { display:flex;gap:5px; }
+.icon-btn,.tool-btn {
+  border:1px solid var(--border);
+  border-radius:11px;
+  color:white;
+  background:var(--panel2);
+  padding:10px;
+}
+.status {
+  padding:8px 12px;
+  font-size:11px;
+  color:var(--muted);
+  border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;gap:8px;
+}
+.chat { flex:1;overflow-y:auto;padding:15px; }
+.welcome {
+  min-height:100%;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  text-align:center;padding:20px 5px;
+}
+.reactor {
+  width:90px;height:90px;border-radius:50%;
+  display:grid;place-items:center;
+  font-size:30px;font-weight:bold;
+  background:radial-gradient(circle,#e9d5ff,#9333ea 35%,#180b29 75%);
+  box-shadow:0 0 35px #9333ea;
+}
+.welcome h2 { margin-bottom:5px; }
+.welcome p { color:var(--muted);font-size:14px;line-height:1.6;max-width:400px; }
+.suggestions {
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;width:100%;max-width:480px;margin-top:15px;
+}
+.suggestion {
+  border:1px solid var(--border);border-radius:12px;
+  padding:12px;text-align:left;
+  background:var(--panel);color:white;font-size:12px;
+}
+.message-row { display:flex;gap:8px;margin:18px 0;align-items:flex-start; }
+.message-row.user { flex-direction:row-reverse; }
+.avatar {
+  flex-shrink:0;width:31px;height:31px;
+  display:grid;place-items:center;
+  border:1px solid var(--border);border-radius:10px;
+  background:#32164f;font-size:11px;font-weight:bold;
+}
+.bubble {
+  min-width:0;max-width:88%;
+  padding:12px;border:1px solid var(--border);
+  border-radius:5px 15px 15px 15px;
+  background:var(--panel);font-size:14px;
+  line-height:1.65;overflow-wrap:anywhere;white-space:pre-wrap;
+}
+.message-row.user .bubble { background:#452078;border-radius:15px 5px 15px 15px; }
+.message-tools {
+  display:flex;flex-wrap:wrap;gap:5px;margin-top:12px;
+  padding-top:10px;border-top:1px solid var(--border);
+}
+.message-tools button {
+  border:1px solid var(--border);
+  background:#28143d;color:#e9d5ff;
+  border-radius:8px;padding:7px 9px;font-size:11px;
+}
+.message-tools button:disabled { opacity:.5; }
+.typing { color:var(--muted);font-size:13px;padding:10px; }
+.composer-area {
+  padding:10px 10px calc(10px + env(safe-area-inset-bottom));
+  border-top:1px solid var(--border);background:var(--panel);
+}
+.attachment {
+  display:none;padding:8px;margin-bottom:8px;
+  border:1px solid var(--border);border-radius:10px;
+  font-size:12px;color:#e9d5ff;
+}
+.composer {
+  display:flex;align-items:flex-end;gap:5px;
+  padding:7px;border:1px solid var(--border);
+  border-radius:16px;background:#0d0818;
+}
+.composer textarea {
+  flex:1;min-width:0;min-height:42px;max-height:130px;
+  resize:none;border:0;outline:0;background:transparent;
+  color:white;padding:12px 3px;font-size:14px;
+}
+.composer textarea::placeholder { color:#8f7da6; }
+.send { background:linear-gradient(135deg,#c084fc,#6d28d9); }
+.footer { text-align:center;padding-top:8px;color:#82708f;font-size:10px; }
+.modal {
+  position:fixed;inset:0;z-index:10;display:none;
+  align-items:center;justify-content:center;
+  padding:15px;background:#030109dd;
+}
+.modal.open { display:flex; }
+.modal-card {
+  width:100%;max-width:450px;max-height:90dvh;overflow:auto;
+  padding:22px;border:1px solid #a855f766;
+  border-radius:20px;background:#170e27;
+}
+.modal-card h2 { margin-top:0; }
+.modal-card p,.help { color:var(--muted);font-size:12px;line-height:1.6; }
+.close { float:right;border:0;background:none;color:white;font-size:22px; }
+.label { display:block;margin:17px 0 8px;font-size:12px;font-weight:bold; }
+.field {
+  width:100%;padding:12px;border:1px solid var(--border);
+  border-radius:11px;background:#0b0714;color:white;
+}
+.primary,.secondary {
+  width:100%;padding:12px;margin-top:12px;
+  border-radius:11px;font-weight:bold;
+}
+.primary { border:0;color:white;background:linear-gradient(135deg,#a855f7,#6d28d9); }
+.secondary { border:1px solid var(--border);background:var(--panel2);color:white; }
+.msg-status { min-height:20px;font-size:12px;line-height:1.5;color:var(--muted);margin-top:10px; }
+.hidden { display:none!important; }
+@media(max-width:420px) {
+  header { padding:9px; }
+  .brand h1 { font-size:16px; }
+  .brand p { font-size:10px; }
+  .icon-btn { padding:8px; }
+  .suggestions { grid-template-columns:1fr; }
+  .bubble { font-size:13px; }
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+<header>
+  <div class="brand">
+    <div class="logo">L</div>
+    <div><h1>LEO AI</h1><p>Your personal AI assistant</p></div>
+  </div>
+  <div class="actions">
+    <button class="icon-btn" id="newChat" title="New chat">＋</button>
+    <button class="icon-btn" id="historyBtn" title="History">☷</button>
+    <button class="icon-btn" id="settingsBtn" title="Settings">⚙</button>
+  </div>
+</header>
+
+<div class="status">
+  <span id="statusText">Not connected — open Settings</span>
+  <span id="modelBadge">No model</span>
+</div>
+
+<main class="chat" id="chat">
+  <section class="welcome" id="welcome">
+    <div class="reactor">L</div>
+    <h2>I'm LEO.</h2>
+    <p>Ask me questions, get help with coding, prepare school materials, or create downloadable documents.</p>
+    <div class="suggestions">
+      <button class="suggestion" data-prompt="Explain artificial intelligence in simple terms.">🧠 Explain something</button>
+      <button class="suggestion" data-prompt="Help me build a website using HTML, CSS and JavaScript.">💻 Help me code</button>
+      <button class="suggestion" data-prompt="Prepare a detailed school lesson note with objectives, activities and evaluation.">📚 Prepare lesson notes</button>
+      <button class="suggestion" data-prompt="Give me five creative project ideas.">🚀 Creative ideas</button>
+    </div>
+  </section>
+  <div id="messages"></div>
+</main>
+
+<section class="composer-area">
+  <div id="attachment" class="attachment"></div>
+  <div class="composer">
+    <button class="tool-btn" id="attachBtn" title="Attach file">＋</button>
+    <input id="fileInput" type="file" hidden accept="image/*,.txt,.csv,.json,.md,.pdf">
+    <button class="tool-btn" id="cameraBtn" title="Take photo">📷</button>
+    <input id="cameraInput" type="file" hidden accept="image/*" capture="environment">
+    <textarea id="input" rows="1" placeholder="Message LEO..."></textarea>
+    <button class="tool-btn" id="voiceBtn" title="Voice input">🎙️</button>
+    <button class="tool-btn send" id="sendBtn" title="Send">➤</button>
+  </div>
+  <div class="footer">LEO AI · Check important information before using it.</div>
+</section>
+</div>
+
+<!-- SETTINGS -->
+<div class="modal" id="settingsModal">
+  <div class="modal-card">
+    <button class="close" id="closeSettings">×</button>
+    <h2>⚙ LEO Settings</h2>
+    <p>Enter your Gemini API key and choose the model you want to use.</p>
+
+    <label class="label" for="apiKey">Gemini API key</label>
+    <input class="field" id="apiKey" type="password" placeholder="Paste API key" autocomplete="off">
+    <div class="help">The key is held in page memory, not saved in chat history. Reloading the page clears it. Do not publish a personal key in public website code.</div>
+
+    <label class="label" for="model">Choose Gemini model</label>
+    <select class="field" id="model">
+      <option value="gemini-4-argon">Gemini 4 Argon — advanced</option>
+      <option value="gemini-3.8-flash" selected>Gemini 3.8 Flash — recommended</option>
+      <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
+      <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash-Lite</option>
+      <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+      <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+    </select>
+    <div class="help">Model access depends on Google's current model catalogue, your key, and your account's limits.</div>
+
+    <button class="primary" id="connectBtn">Save settings & test connection</button>
+    <button class="secondary" id="clearKeyBtn">Clear API key from memory</button>
+    <div id="settingsStatus" class="msg-status"></div>
+    <div class="help">Get an API key from <a style="color:#c084fc" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>.</div>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div class="modal" id="historyModal">
+  <div class="modal-card">
+    <button class="close" id="closeHistory">×</button>
+    <h2>Chat history</h2>
+    <div id="historyList"></div>
+    <button class="secondary" id="clearHistory">Delete all conversations</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+let API_KEY = "";
+let MODEL_NAME = localStorage.getItem("leo_model") || "gemini-3.8-flash";
+let chats = [];
+let currentChatId = null;
+let pendingFile = null;
+let busy = false;
+let lastActivity = Date.now();
+let recognition = null;
+
+const $ = id => document.getElementById(id);
+const messages = $("messages");
+const welcome = $("welcome");
+const input = $("input");
+
+function saveChats() {
+  try {
+    localStorage.setItem("leo_chats", JSON.stringify(chats.slice(-40)));
+  } catch(e) {
+    console.warn("Could not save chat history", e);
+  }
+}
+
+function loadChats() {
+  try {
+    chats = JSON.parse(localStorage.getItem("leo_chats") || "[]");
+    if (!Array.isArray(chats)) chats = [];
+  } catch(e) {
+    chats = [];
+  }
+}
+
+function currentChat() {
+  return chats.find(c => c.id === currentChatId);
+}
+
+function createChat() {
+  const c = {
+    id: Date.now().toString() + Math.random().toString(36).slice(2,7),
+    title: "New conversation",
+    messages: [],
+    updated: Date.now()
+  };
+  chats.push(c);
+  currentChatId = c.id;
+  saveChats();
+  renderChat();
+}
+
+function addSaved(role, text, attachmentName="") {
+  let c = currentChat();
+  if (!c) {
+    createChat();
+    c = currentChat();
+  }
+
+  c.messages.push({role, text, attachmentName, time:Date.now()});
+
+  if (role === "user" && c.title === "New conversation") {
+    c.title = (text || attachmentName || "New conversation").slice(0,40);
+  }
+
+  c.updated = Date.now();
+  saveChats();
+}
+
+function renderChat() {
+  messages.replaceChildren();
+  const c = currentChat();
+  const has = !!(c && c.messages.length);
+  welcome.style.display = has ? "none" : "flex";
+
+  if (c) {
+    c.messages.forEach(m => addBubble(m.role,m.text,m.attachmentName,false));
+  }
+  scrollBottom();
+}
+
+function scrollBottom() {
+  requestAnimationFrame(() => {
+    $("chat").scrollTop = $("chat").scrollHeight;
+  });
+}
+
+function addBubble(role,text,attachmentName="",addTools=true) {
+  welcome.style.display = "none";
+
+  const row = document.createElement("div");
+  row.className = "message-row " + (role === "user" ? "user" : "model");
+
+  const avatar = document.createElement("div");
+  avatar.className = "avatar";
+  avatar.textContent = role === "user" ? "YOU" : "L";
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+
+  if (attachmentName) {
+    const label = document.createElement("div");
+    label.textContent = "📎 " + attachmentName;
+    label.style.color = "#d8b4fe";
+    label.style.fontSize = "11px";
+    label.style.marginBottom = "5px";
+    bubble.appendChild(label);
+  }
+
+  const content = document.createElement("div");
+  content.textContent = text;
+  bubble.appendChild(content);
+
+  if (role === "model" && addTools) {
+    const tools = document.createElement("div");
+    tools.className = "message-tools";
+
+    const copy = document.createElement("button");
+    copy.textContent = "📋 Copy";
+    copy.onclick = () => copyText(text, copy);
+
+    const pdf = document.createElement("button");
+    pdf.textContent = "📄 PDF";
+    pdf.onclick = () => downloadPDF(text, pdf);
+
+    const word = document.createElement("button");
+    word.textContent = "📝 Word";
+    word.onclick = () => downloadWord(text, word);
+
+    const excel = document.createElement("button");
+    excel.textContent = "📊 Excel";
+    excel.onclick = () => downloadExcel(text, excel);
+
+    const speak = document.createElement("button");
+    speak.textContent = "🔊 Read";
+    speak.onclick = () => speakText(text);
+
+    tools.append(copy,pdf,word,excel,speak);
+    bubble.appendChild(tools);
+  }
+
+  row.append(avatar,bubble);
+  messages.appendChild(row);
+  scrollBottom();
+}
+
+async function copyText(text,button) {
+  try {
+    await navigator.clipboard.writeText(text);
+    button.textContent = "✅ Copied!";
+    setTimeout(() => button.textContent = "📋 Copy",1500);
+  } catch(e) {
+    const area = document.createElement("textarea");
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand("copy");
+    area.remove();
+    button.textContent = ok ? "✅ Copied!" : "Copy failed";
+    setTimeout(() => button.textContent = "📋 Copy",1500);
+  }
+}
+
+function cleanFilename(name) {
+  return (name || "LEO_Answer")
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g,"")
+    .trim()
+    .replace(/\s+/g,"_")
+    .slice(0,60) || "LEO_Answer";
+}
+
+function downloadPDF(text,button) {
+  try {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      throw new Error("PDF library did not load. Check your internet connection and reload.");
+    }
+
+    const {jsPDF} = window.jspdf;
+    const pdf = new jsPDF({unit:"mm",format:"a4"});
+    const margin = 17;
+    const width = pdf.internal.pageSize.getWidth() - margin*2;
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const lines = pdf.splitTextToSize(text,width);
+    const lineHeight = 6;
+    let y = 20;
+
+    pdf.setFont("helvetica","bold");
+    pdf.setFontSize(16);
+    pdf.text("LEO AI - Answer",margin,y);
+    y += 10;
+
+    pdf.setFont("helvetica","normal");
+    pdf.setFontSize(11);
+
+    for (const line of lines) {
+      if (y > pageHeight - margin) {
+        pdf.addPage();
+        y = margin;
+      }
+
+      // jsPDF's standard fonts do not cover every Unicode character.
+      // Replace uncommon characters to avoid unsupported glyph issues.
+      const safeLine = String(line).replace(/[^\x20-\x7E\xA0-\xFF]/g,"?");
+      pdf.text(safeLine,margin,y);
+      y += lineHeight;
+    }
+
+    pdf.save(cleanFilename("LEO_Answer") + ".pdf");
+    button.textContent = "✅ Saved";
+    setTimeout(() => button.textContent = "📄 PDF",1500);
+  } catch(e) {
+    alert(e.message || "Could not generate PDF.");
+  }
+}
+
+async function downloadWord(text,button) {
+  try {
+    if (!window.docx) {
+      throw new Error("Word library did not load. Check your internet connection and reload.");
+    }
+
+    const {Document,Packer,Paragraph,TextRun,HeadingLevel} = window.docx;
+
+    const paragraphs = [
+      new Paragraph({
+        text:"LEO AI - Answer",
+        heading:HeadingLevel.HEADING_1
+      }),
+      ...text.split("\n").map(line => new Paragraph({
+        children:[new TextRun(line || " ")]
+      }))
+    ];
+
+    const doc = new Document({
+      sections:[{properties:{},children:paragraphs}]
+    });
+
+    const blob = await Packer.toBlob(doc);
+    downloadBlob(blob,cleanFilename("LEO_Answer") + ".docx");
+
+    button.textContent = "✅ Saved";
+    setTimeout(() => button.textContent = "📝 Word",1500);
+  } catch(e) {
+    alert(e.message || "Could not generate Word document.");
+  }
+}
+
+function downloadExcel(text,button) {
+  try {
+    if (!window.XLSX) {
+      throw new Error("Excel library did not load. Check your internet connection and reload.");
+    }
+
+    // One response line per spreadsheet row.
+    // The complete answer is also preserved in a single cell on a second sheet.
+    const lines = text.split(/\r?\n/);
+    const rows = [["Line","Answer"]];
+    lines.forEach((line,i) => rows.push([i+1,line]));
+
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+
+    worksheet["!cols"] = [
+      {wch:10},
+      {wch:100}
+    ];
+
+    XLSX.utils.book_append_sheet(workbook,worksheet,"Answer Lines");
+
+    const fullSheet = XLSX.utils.aoa_to_sheet([
+      ["LEO AI - Full Answer"],
+      [text]
+    ]);
+    fullSheet["!cols"] = [{wch:100}];
+    XLSX.utils.book_append_sheet(workbook,fullSheet,"Full Answer");
+
+    XLSX.writeFile(workbook,cleanFilename("LEO_Answer") + ".xlsx");
+
+    button.textContent = "✅ Saved";
+    setTimeout(() => button.textContent = "📊 Excel",1500);
+  } catch(e) {
+    alert(e.message || "Could not generate Excel file.");
+  }
+}
+
+function downloadBlob(blob,filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url),3000);
+}
+
+function speakText(text) {
+  if (!("speechSynthesis" in window)) {
+    alert("Text-to-speech is not supported by this browser.");
+    return;
+  }
+
+  speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "en-US";
+  speechSynthesis.speak(utterance);
+}
+
+function updateStatus(text) {
+  $("statusText").textContent = text;
+}
+
+function updateModelBadge() {
+  $("modelBadge").textContent = MODEL_NAME;
+}
+
+function showSettings() {
+  $("model").value = MODEL_NAME;
+  $("apiKey").value = "";
+  $("settingsStatus").textContent = API_KEY
+    ? "A key is already active. Leave the key field empty to keep using it."
+    : "Paste your Gemini API key to connect.";
+  $("settingsModal").classList.add("open");
+}
+
+async function connect() {
+  const key = $("apiKey").value.trim();
+  if (key) API_KEY = key;
+
+  if (!API_KEY) {
+    $("settingsStatus").textContent = "Please enter your API key.";
+    return;
+  }
+
+  MODEL_NAME = $("model").value;
+  localStorage.setItem("leo_model",MODEL_NAME);
+  updateModelBadge();
+
+  $("connectBtn").disabled = true;
+  $("settingsStatus").textContent = "Testing connection...";
+
+  try {
+    const response = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/" +
+      encodeURIComponent(MODEL_NAME) +
+      ":generateContent?key=" + encodeURIComponent(API_KEY),
+      {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          contents:[{parts:[{text:"Reply with: LEO is connected."}]}]
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data?.error?.message || "API request failed.");
+    }
+
+    $("settingsStatus").textContent = "Connected successfully using " + MODEL_NAME + ".";
+    updateStatus("Connected to Gemini");
+    setTimeout(() => $("settingsModal").classList.remove("open"),900);
+  } catch(e) {
+    $("settingsStatus").textContent = "Connection failed: " + e.message;
+    updateStatus("Connection failed — check Settings");
+  } finally {
+    $("connectBtn").disabled = false;
+  }
+}
+
+function readBase64(file) {
+  return new Promise((resolve,reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1]);
+    reader.onerror = () => reject(new Error("Could not read file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function readText(file) {
+  return new Promise((resolve,reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Could not read text file."));
+    reader.readAsText(file);
+  });
+}
+
+async function getAnswer(prompt,file) {
+  if (!API_KEY) throw new Error("Open Settings and connect your API key first.");
+
+  const parts = [];
+  if (prompt) parts.push({text:prompt});
+
+  if (file) {
+    if (file.type.startsWith("image/")) {
+      parts.push({
+        inline_data:{
+          mime_type:file.type,
+          data:await readBase64(file)
+        }
+      });
+    } else if (
+      file.type === "application/pdf" ||
+      file.name.toLowerCase().endsWith(".pdf")
+    ) {
+      parts.push({
+        inline_data:{
+          mime_type:"application/pdf",
+          data:await readBase64(file)
+        }
+      });
+    } else {
+      parts.push({
+        text:"Attached file: " + file.name + "\n\n" +
+          (await readText(file)).slice(0,40000)
+      });
+    }
+  }
+
+  const c = currentChat();
+  const history = (c?.messages || []).slice(-12).map(m => ({
+    role:m.role,
+    parts:[{text:m.text || "(attachment)"}]
+  }));
+
+  history.push({role:"user",parts});
+
+  const response = await fetch(
+    "https://generativelanguage.googleapis.com/v1beta/models/" +
+    encodeURIComponent(MODEL_NAME) +
+    ":generateContent?key=" + encodeURIComponent(API_KEY),
+    {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        contents:history,
+        generationConfig:{temperature:0.7,maxOutputTokens:4096}
+      })
+    }
+  );
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.error?.message || "Gemini request failed.");
+  }
+
+  const answer = data?.candidates?.[0]?.content?.parts
+    ?.map(p => p.text || "").join("").trim();
+
+  if (!answer) throw new Error("The model returned no text.");
+  return answer;
+}
+
+async function sendMessage(forcedText=null) {
+  if (busy) return;
+
+  const text = (forcedText !== null ? forcedText : input.value).trim();
+  const file = pendingFile;
+  if (!text && !file) return;
+
+  if (!API_KEY) {
+    showSettings();
+    $("settingsStatus").textContent = "Connect your API key before chatting.";
+    return;
+  }
+
+  if (!currentChat()) createChat();
+
+  busy = true;
+  $("sendBtn").disabled = true;
+  input.value = "";
+  resizeInput();
+
+  const userText = text || "Please analyse the attached file.";
+  addSaved("user",userText,file?.name || "");
+  addBubble("user",userText,file?.name || "",false);
+
+  pendingFile = null;
+  updateAttachment();
+
+  const typing = document.createElement("div");
+  typing.className = "typing";
+  typing.textContent = "LEO is thinking...";
+  messages.appendChild(typing);
+  scrollBottom();
+
+  try {
+    const answer = await getAnswer(text,file);
+    typing.remove();
+    addSaved("model",answer);
+    addBubble("model",answer);
+    updateStatus("Connected to Gemini");
+  } catch(e) {
+    typing.remove();
+    addBubble("model","Sorry, I couldn't complete that request.\n\n" +
+      e.message + "\n\nOpen Settings to check your API key or try another model.",false);
+  } finally {
+    busy = false;
+    $("sendBtn").disabled = false;
+    lastActivity = Date.now();
+  }
+}
+
+function resizeInput() {
+  input.style.height = "auto";
+  input.style.height = Math.min(input.scrollHeight,130) + "px";
+}
+
+function chooseFile(file) {
+  if (!file) return;
+  if (file.size > 15*1024*1024) {
+    alert("Please select a file smaller than 15 MB.");
+    return;
+  }
+  pendingFile = file;
+  updateAttachment();
+}
+
+function updateAttachment() {
+  const box = $("attachment");
+  if (!pendingFile) {
+    box.style.display = "none";
+    box.textContent = "";
+    return;
+  }
+  box.style.display = "block";
+  box.textContent = "📎 " + pendingFile.name + " — attached";
+}
+
+function newChat() {
+  if (busy) return;
+  pendingFile = null;
+  updateAttachment();
+  createChat();
+  lastActivity = Date.now();
+}
+
+function openHistory() {
+  const list = $("historyList");
+  list.replaceChildren();
+
+  [...chats].sort((a,b) => b.updated-a.updated).forEach(c => {
+    const row = document.createElement("div");
+    row.style.display = "flex";
+    row.style.gap = "7px";
+    row.style.margin = "9px 0";
+
+    const open = document.createElement("button");
+    open.className = "secondary";
+    open.style.flex = "1";
+    open.style.marginTop = "0";
+    open.textContent = c.title;
+    open.onclick = () => {
+      currentChatId = c.id;
+      renderChat();
+      $("historyModal").classList.remove("open");
+    };
+
+    const del = document.createElement("button");
+    del.className = "icon-btn";
+    del.textContent = "🗑";
+    del.onclick = () => {
+      chats = chats.filter(x => x.id !== c.id);
+      if (currentChatId === c.id) currentChatId = null;
+      saveChats();
+      if (!currentChat()) createChat();
+      openHistory();
+    };
+
+    row.append(open,del);
+    list.appendChild(row);
+  });
+
+  if (!chats.length) list.textContent = "No conversations saved yet.";
+  $("historyModal").classList.add("open");
+}
+
+$("connectBtn").onclick = connect;
+$("settingsBtn").onclick = showSettings;
+$("closeSettings").onclick = () => $("settingsModal").classList.remove("open");
+$("clearKeyBtn").onclick = () => {
+  API_KEY = "";
+  $("apiKey").value = "";
+  updateStatus("API key cleared");
+  $("settingsStatus").textContent = "API key cleared from page memory.";
+};
+$("model").onchange = () => {
+  MODEL_NAME = $("model").value;
+  localStorage.setItem("leo_model",MODEL_NAME);
+  updateModelBadge();
+};
+$("newChat").onclick = newChat;
+$("historyBtn").onclick = openHistory;
+$("closeHistory").onclick = () => $("historyModal").classList.remove("open");
+$("clearHistory").onclick = () => {
+  if (!confirm("Delete all saved conversations?")) return;
+  chats = [];
+  currentChatId = null;
+  saveChats();
+  createChat();
+  openHistory();
+};
+$("sendBtn").onclick = () => sendMessage();
+input.addEventListener("input",resizeInput);
+input.addEventListener("keydown",e => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+$("attachBtn").onclick = () => $("fileInput").click();
+$("fileInput").onchange = e => {
+  chooseFile(e.target.files[0]);
+  e.target.value = "";
+};
+$("cameraBtn").onclick = () => $("cameraInput").click();
+$("cameraInput").onchange = e => {
+  chooseFile(e.target.files[0]);
+  e.target.value = "";
+};
+
+document.querySelectorAll(".suggestion").forEach(btn => {
+  btn.onclick = () => {
+    input.value = btn.dataset.prompt;
+    resizeInput();
+    sendMessage();
+  };
+});
+
+function setupVoice() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    $("voiceBtn").onclick = () => alert("Voice input is not supported by this browser.");
+    return;
+  }
+
+  recognition = new SpeechRecognition();
+  recognition.lang = "en-GH";
+  recognition.interimResults = true;
+
+  recognition.onresult = e => {
+    let result = "";
+    for (let i=e.resultIndex;i<e.results.length;i++) {
+      result += e.results[i][0].transcript;
+    }
+    input.value = result;
+    resizeInput();
+  };
+
+  $("voiceBtn").onclick = () => {
+    try { recognition.start(); }
+    catch(e) { try { recognition.stop(); } catch(_) {} }
+  };
+}
+
+setInterval(() => {
+  if (Date.now()-lastActivity >= 4*60*1000 && !busy) {
+    const c = currentChat();
+    if (c && c.messages.length) createChat();
+    lastActivity = Date.now();
+  }
+},15000);
+
+["pointerdown","keydown","touchstart"].forEach(name => {
+  document.addEventListener(name,() => lastActivity=Date.now(),{passive:true});
+});
+
+function init() {
+  loadChats();
+  updateModelBadge();
+  $("model").value = MODEL_NAME;
+
+  if (chats.length) {
+    currentChatId = [...chats].sort((a,b)=>b.updated-a.updated)[0].id;
+    renderChat();
+  } else {
+    createChat();
+  }
+
+  setupVoice();
+  updateStatus("Not connected — open Settings");
+
+  setTimeout(() => {
+    if (!API_KEY) showSettings();
+  },400);
+}
+
+init();
+</script>
+</body>
+</html>
